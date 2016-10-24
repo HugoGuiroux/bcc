@@ -36,7 +36,7 @@ bool Argument::get_global_address(uint64_t *address, const std::string &binpath,
                                   const optional<int> &pid) const {
   if (pid) {
     return ProcSyms(*pid)
-        .resolve_name(binpath.c_str(), deref_ident_->c_str(), address);
+      .resolve_name(binpath.c_str(), deref_ident_->c_str(), address, NULL);
   }
 
   if (bcc_elf_is_shared_obj(binpath.c_str()) == 0) {

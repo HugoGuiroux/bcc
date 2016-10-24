@@ -58,9 +58,11 @@ class SymbolCache(object):
 
     def resolve_name(self, name):
         addr = ct.c_ulonglong()
-        if lib.bcc_symcache_resolve_name(self.cache, name, ct.pointer(addr)) < 0:
+        size = ct.c_ulonglong()
+        print(self.cache, name, ct.pointer(addr), ct.pointer(size))
+        if lib.bcc_symcache_resolve_name(self.cache, name, ct.pointer(addr), ct.pointer(size)) < 0:
             return -1
-        return addr.value
+        return (addr.value, size.value)
 
 class PerfType:
     # From perf_type_id in uapi/linux/perf_event.h

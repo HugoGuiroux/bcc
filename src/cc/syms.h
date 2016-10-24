@@ -39,7 +39,7 @@ public:
   virtual void refresh() = 0;
   virtual bool resolve_addr(uint64_t addr, struct bcc_symbol *sym) = 0;
   virtual bool resolve_name(const char *module, const char *name,
-                            uint64_t *addr) = 0;
+                            uint64_t *addr, uint64_t *size) = 0;
 };
 
 class KSyms : SymbolCache {
@@ -52,13 +52,13 @@ class KSyms : SymbolCache {
   };
 
   std::vector<Symbol> syms_;
-  std::unordered_map<std::string, uint64_t> symnames_;
+  std::unordered_map<std::string, std::pair<uint64_t, uint64_t>> symnames_;
   static void _add_symbol(const char *, uint64_t, void *);
 
 public:
   virtual bool resolve_addr(uint64_t addr, struct bcc_symbol *sym);
   virtual bool resolve_name(const char *unused, const char *name,
-                            uint64_t *addr);
+                            uint64_t *addr, uint64_t *size);
   virtual void refresh();
 };
 
@@ -87,7 +87,7 @@ class ProcSyms : SymbolCache {
 
     void load_sym_table();
     bool find_addr(uint64_t addr, struct bcc_symbol *sym);
-    bool find_name(const char *symname, uint64_t *addr);
+    bool find_name(const char *symname, uint64_t *addr, uint64_t *size);
     bool is_so() const;
     bool is_perf_map() const;
 
@@ -107,5 +107,5 @@ public:
   virtual void refresh();
   virtual bool resolve_addr(uint64_t addr, struct bcc_symbol *sym);
   virtual bool resolve_name(const char *module, const char *name,
-                            uint64_t *addr);
+                            uint64_t *addr, uint64_t *size);
 };

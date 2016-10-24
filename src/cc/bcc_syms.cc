@@ -68,13 +68,21 @@ bool KSyms::resolve_addr(uint64_t addr, struct bcc_symbol *sym) {
 }
 
 bool KSyms::resolve_name(const char *_unused, const char *name,
-                         uint64_t *addr) {
+                         uint64_t *addr, uint64_t *size) {
   refresh();
 
   if (syms_.size() != symnames_.size()) {
     symnames_.clear();
+    Symbol *prev = NULL;
     for (Symbol &sym : syms_) {
-      symnames_[sym.name] = sym.addr;
+      if (prev != NULL) {
+	assert(prev->addr <= sym.addr);
+	symnames_[prev->name] = std::make_pair(prev->addr, sym.addr - prev->addr);
+      }
+      prev = &sym;
+    }
+    if (prev != NULL) {
+      symnames_[prev->name] = std::make_pair(prev->addr, 1);
     }
   }
 
@@ -82,7 +90,10 @@ bool KSyms::resolve_name(const char *_unused, const char *name,
   if (it == symnames_.end())
     return false;
 
-  *addr = it->second;
+  *addr = it->second.first;
+  if (size != NULL) {
+    *size = it->second.second;
+  }
   return true;
 }
 
@@ -129,13 +140,18 @@ bool ProcSyms::resolve_addr(uint64_t addr, struct bcc_symbol *sym) {
 }
 
 bool ProcSyms::resolve_name(const char *module, const char *name,
-                            uint64_t *addr) {
+                            uint64_t *addr, uint64_t *size) {
   if (procstat_.is_stale())
     refresh();
 
   for (Module &mod : modules_) {
-    if (mod.name_ == module)
-      return mod.find_name(name, addr);
+    if (module) {
+      if (mod.name_ == module)
+	return mod.find_name(name, addr, size);
+    } else {
+      if (mod.find_name(name, addr, size)) 
+	return true;
+    }
   }
   return false;
 }
@@ -168,12 +184,14 @@ void ProcSyms::Module::load_sym_table() {
   std::sort(syms_.begin(), syms_.end());
 }
 
-bool ProcSyms::Module::find_name(const char *symname, uint64_t *addr) {
+bool ProcSyms::Module::find_name(const char *symname, uint64_t *addr, uint64_t *size) {
   load_sym_table();
-
   for (Symbol &s : syms_) {
     if (*(s.name) == symname) {
       *addr = is_so() ? start_ + s.start : s.start;
+      if (size != NULL) {
+	*size = s.size;
+      }
       return true;
     }
   }
@@ -219,9 +237,9 @@ int bcc_symcache_resolve(void *resolver, uint64_t addr,
 }
 
 int bcc_symcache_resolve_name(void *resolver, const char *name,
-                              uint64_t *addr) {
+                              uint64_t *addr, uint64_t *size) {
   SymbolCache *cache = static_cast<SymbolCache *>(resolver);
-  return cache->resolve_name(nullptr, name, addr) ? 0 : -1;
+  return cache->resolve_name(nullptr, name, addr, size) ? 0 : -1;
 }
 
 void bcc_symcache_refresh(void *resolver) {
